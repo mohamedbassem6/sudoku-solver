@@ -6,10 +6,6 @@ public class Grid {
 
     private static final Set<Integer> POSSIBLE_VALUES = Set.of(1, 2, 3, 4, 5, 6, 7, 8, 9);
 
-    public Grid() {
-        this.grid = new int[9][9];
-    }
-
     public Grid(int[][] grid) {
         this.grid = grid.clone();
     }
@@ -60,7 +56,7 @@ public class Grid {
     private boolean predictCell(int row, int column) {
         Set<Integer> rowPossibleValues = this.getRow(row);
         Set<Integer> columnPossibleValues = this.getColumn(column);
-        Set<Integer> blockPossibleValues = this.getBlock((int) row / 3, (int) column / 3);
+        Set<Integer> blockPossibleValues = this.getBlock(row / 3, column / 3);
 
         Set<Integer> possibleValues = new HashSet<>(rowPossibleValues);
         possibleValues.retainAll(columnPossibleValues);
@@ -84,7 +80,7 @@ public class Grid {
             predicted = false;
 
             for (int i = 0; i < 9; i++) {
-                for (int j = 0; j < 9; i++) {
+                for (int j = 0; j < 9; j++) {
                     if (this.grid[i][j] == 0) {
                         predicted = predictCell(i, j);
                     }
