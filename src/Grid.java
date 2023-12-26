@@ -1,10 +1,8 @@
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 public class Grid {
     private int[][] grid;
-    
+
     private HashSet<Integer>[][] knowledgeBase;
 
     private static final Set<Integer> POSSIBLE_VALUES = Set.of(1, 2, 3, 4, 5, 6, 7, 8, 9);
@@ -152,75 +150,163 @@ public class Grid {
         grid[row][col] = value;
         blankCellsCount--;
 
-        log.add("Predicted value " + value + " for cell (" + row + ", " + col + ")");
+        log.add(value + " -> (" + row + ", " + col + ")");
 
         updateKnowledgeBaseFor(row, col);
     }
 
+    private void checkDuplicates(int type, int row, int col) {
+        Map<HashSet<Integer>, Integer> uniqueSetsCount = new HashMap<>();
+
+        if (type == 0) {        // Row
+
+            for (int i = 0; i < 9; i++) {
+                int count = uniqueSetsCount.getOrDefault(knowledgeBase[row][i], 0);
+
+                if (count == 0) {
+                    uniqueSetsCount.put(knowledgeBase[row][i], 1);
+                } else {
+                    uniqueSetsCount.put(knowledgeBase[row][i], count + 1);
+                }
+            }
+
+        } else if (type == 1) { // Col
+
+            for (int i = 0; i < 9; i++) {
+                int count = uniqueSetsCount.getOrDefault(knowledgeBase[i][col], 0);
+
+                if (count == 0) {
+                    uniqueSetsCount.put(knowledgeBase[i][col], 1);
+                } else {
+                    uniqueSetsCount.put(knowledgeBase[i][col], count + 1);
+                }
+            }
+
+        } else {            // Block
+
+            int blockRow = (row / 3) * 3;
+            int blockCol = (col / 3) * 3;
+
+            for (int i = blockRow; i < blockRow + 3; i++) {
+                for (int j = blockCol; j < blockCol + 3; j++) {
+                    int count = uniqueSetsCount.getOrDefault(knowledgeBase[i][j], 0);
+
+                    if (count == 0) {
+                        uniqueSetsCount.put(knowledgeBase[i][j], 1);
+                    } else {
+                        uniqueSetsCount.put(knowledgeBase[i][j], count + 1);
+                    }
+                }
+            }
+        }
+
+        ArrayList<HashSet<Integer>> duplicates = new ArrayList<>();
+
+        boolean response = false;
+
+        for (Map.Entry<HashSet<Integer>, Integer> entry : uniqueSetsCount.entrySet()) {
+            if (entry.getValue() == entry.getKey().size()) {
+                duplicates.add(entry.getKey());
+            }
+        }
+
+        for (HashSet<Integer> duplicate : duplicates) {
+            if (type == 0) {
+                for (int i = 0; i < 9; i++) {
+                    if (!knowledgeBase[row][i].equals(duplicate)) {
+                        knowledgeBase[row][i].removeAll(duplicate);
+                    }
+                }
+            } else if (type == 1) {
+                for (int i = 0; i < 9; i++) {
+                    if (!knowledgeBase[i][col].equals(duplicate)) {
+                        knowledgeBase[i][col].removeAll(duplicate);
+                    }
+                }
+            } else {
+                int blockRow = (row / 3) * 3;
+                int blockCol = (col / 3) * 3;
+
+                for (int i = blockRow; i < blockRow + 3; i++) {
+                    for (int j = blockCol; j < blockCol + 3; j++) {
+                        if (!knowledgeBase[i][j].equals(duplicate)) {
+                            knowledgeBase[i][j].removeAll(duplicate);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private boolean inferBy(int type, int row, int col) {
+        checkDuplicates(type, row, col);
+
         HashSet<Integer> cellValues = new HashSet<>(knowledgeBase[row][col]);
 
         if (cellValues.size() == 1) {          // Infer By Cell
             setCell(row, col, cellValues.iterator().next());
             return true;
-        } else if (type == 0) {                // Infer By Row
+        } else {
 
-            for (int i = 0; i < 9; i++) {
-                if (i != col) {
-                    HashSet<Integer> values = new HashSet<>(knowledgeBase[row][i]);
-                    cellValues.removeAll(values);
+            if (type == 0) {                // Infer By Row
 
-                    if (cellValues.isEmpty()) {
-                        break;
-                    }
-                }
-            }
-
-            if (cellValues.size() == 1) {
-                setCell(row, col, cellValues.iterator().next());
-                return true;
-            }
-
-        } else if (type == 1) {                // Infer By Col
-
-            for (int i = 0; i < 9; i++) {
-                if (i != row) {
-                    HashSet<Integer> values = new HashSet<>(knowledgeBase[i][col]);
-                    cellValues.removeAll(values);
-
-                    if (cellValues.isEmpty()) {
-                        break;
-                    }
-                }
-            }
-
-            if (cellValues.size() == 1) {
-                setCell(row, col, cellValues.iterator().next());
-                return true;
-            }
-
-        } else {                               // Infer By Block
-
-            int blockRow = (row / 3) * 3;
-            int blockCol = (col / 3) * 3;
-
-            outerLoop:
-            for (int i = blockRow; i < blockRow + 3; i++) {
-                for (int j = blockCol; j < blockCol + 3; j++) {
-                    if (!(i == row && j == col)) {
-                        HashSet<Integer> values = new HashSet<>(knowledgeBase[i][j]);
+                for (int i = 0; i < 9; i++) {
+                    if (i != col) {
+                        HashSet<Integer> values = new HashSet<>(knowledgeBase[row][i]);
                         cellValues.removeAll(values);
 
                         if (cellValues.isEmpty()) {
-                            break outerLoop;
+                            break;
                         }
                     }
                 }
-            }
 
-            if (cellValues.size() == 1) {
-                setCell(row, col, cellValues.iterator().next());
-                return true;
+                if (cellValues.size() == 1) {
+                    setCell(row, col, cellValues.iterator().next());
+                    return true;
+                }
+
+            } else if (type == 1) {                // Infer By Col
+
+                for (int i = 0; i < 9; i++) {
+                    if (i != row) {
+                        HashSet<Integer> values = new HashSet<>(knowledgeBase[i][col]);
+                        cellValues.removeAll(values);
+
+                        if (cellValues.isEmpty()) {
+                            break;
+                        }
+                    }
+                }
+
+                if (cellValues.size() == 1) {
+                    setCell(row, col, cellValues.iterator().next());
+                    return true;
+                }
+
+            } else {                               // Infer By Block
+
+                int blockRow = (row / 3) * 3;
+                int blockCol = (col / 3) * 3;
+
+                outerLoop:
+                for (int i = blockRow; i < blockRow + 3; i++) {
+                    for (int j = blockCol; j < blockCol + 3; j++) {
+                        if (!(i == row && j == col)) {
+                            HashSet<Integer> values = new HashSet<>(knowledgeBase[i][j]);
+                            cellValues.removeAll(values);
+
+                            if (cellValues.isEmpty()) {
+                                break outerLoop;
+                            }
+                        }
+                    }
+                }
+
+                if (cellValues.size() == 1) {
+                    setCell(row, col, cellValues.iterator().next());
+                    return true;
+                }
             }
         }
 
@@ -229,10 +315,13 @@ public class Grid {
 
     public void solve() {
         boolean predicted;
+        int turnsCount = 0;
 
         do {
             predicted = false;
+            turnsCount++;
 
+            outerLoop:
             for (int i = 0; i < 9; i++) {
                 for (int j = 0; j < 9; j++) {
                     if (this.grid[i][j] == 0) {
@@ -240,7 +329,7 @@ public class Grid {
                             predicted = predicted || inferBy(k, i, j);
 
                             if (predicted) {
-                                break;
+                                break outerLoop;
                             }
                         }
                     }
