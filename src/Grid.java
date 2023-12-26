@@ -5,7 +5,7 @@ import java.util.Set;
 public class Grid {
     private int[][] grid;
     
-//    private HashSet<Integer>[][] knowledgeBase;
+    private HashSet<Integer>[][] knowledgeBase;
 
     private static final Set<Integer> POSSIBLE_VALUES = Set.of(1, 2, 3, 4, 5, 6, 7, 8, 9);
 
@@ -20,21 +20,21 @@ public class Grid {
 
         this.grid = grid.clone();
 
-//        this.knowledgeBase = new HashSet[9][9];
+        this.knowledgeBase = new HashSet[9][9];
         for (int i = 0; i < 9; i++) {
             for (int j = 0; j < 9; j++) {
-//                if (grid[i][j] == 0) {
-//                    knowledgeBase[i][j] = getPossibleValues(i, j);
-//                } else {
-//                    blankCellsCount--;
-//
-//                    knowledgeBase[i][j] = new HashSet<>();
-//                    knowledgeBase[i][j].add(grid[i][j]);
-//                }
-
-                if (grid[i][j] != 0) {
+                if (grid[i][j] == 0) {
+                    knowledgeBase[i][j] = getPossibleValues(i, j);
+                } else {
                     blankCellsCount--;
+
+                    knowledgeBase[i][j] = new HashSet<>();
+                    knowledgeBase[i][j].add(grid[i][j]);
                 }
+
+//                if (grid[i][j] != 0) {
+//                    blankCellsCount--;
+//                }
             }
         }
     }
@@ -125,15 +125,40 @@ public class Grid {
         return possibleValues;
     }
 
+    private void updateKnowledgeBaseFor(int row, int col) {
+        for (int i = 0; i < 9; i++) {
+            if (i != col) {
+                knowledgeBase[row][i] = getPossibleValues(row, i);
+            }
+
+            if (i != row) {
+                knowledgeBase[i][col] = getPossibleValues(i, col);
+            }
+        }
+
+        int blockRow = (row / 3) * 3;
+        int blockCol = (col / 3) * 3;
+
+        for (int i = blockRow; i < blockRow + 3; i++) {
+            for (int j = blockCol; j < blockCol + 3; j++) {
+                if (!(i == row && j == col)) {
+                    knowledgeBase[i][j] = getPossibleValues(i, j);
+                }
+            }
+        }
+    }
+
     private void setCell(int row, int col, int value) {
         grid[row][col] = value;
         blankCellsCount--;
 
         log.add("Predicted value " + value + " for cell (" + row + ", " + col + ")");
+
+        updateKnowledgeBaseFor(row, col);
     }
 
     private boolean inferBy(int type, int row, int col) {
-        HashSet<Integer> cellValues = getPossibleValues(row, col);
+        HashSet<Integer> cellValues = new HashSet<>(knowledgeBase[row][col]);
 
         if (cellValues.size() == 1) {          // Infer By Cell
             setCell(row, col, cellValues.iterator().next());
@@ -142,7 +167,7 @@ public class Grid {
 
             for (int i = 0; i < 9; i++) {
                 if (i != col) {
-                    HashSet<Integer> values = getPossibleValues(row, i);
+                    HashSet<Integer> values = new HashSet<>(knowledgeBase[row][i]);
                     cellValues.removeAll(values);
 
                     if (cellValues.isEmpty()) {
@@ -160,7 +185,7 @@ public class Grid {
 
             for (int i = 0; i < 9; i++) {
                 if (i != row) {
-                    HashSet<Integer> values = getPossibleValues(i, col);
+                    HashSet<Integer> values = new HashSet<>(knowledgeBase[i][col]);
                     cellValues.removeAll(values);
 
                     if (cellValues.isEmpty()) {
@@ -183,7 +208,7 @@ public class Grid {
             for (int i = blockRow; i < blockRow + 3; i++) {
                 for (int j = blockCol; j < blockCol + 3; j++) {
                     if (!(i == row && j == col)) {
-                        HashSet<Integer> values = getPossibleValues(i, j);
+                        HashSet<Integer> values = new HashSet<>(knowledgeBase[i][j]);
                         cellValues.removeAll(values);
 
                         if (cellValues.isEmpty()) {
