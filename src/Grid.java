@@ -124,13 +124,16 @@ public class Grid {
     }
 
     private void updateKnowledgeBaseFor(int row, int col) {
+        knowledgeBase[row][col] = new HashSet<>();
+        knowledgeBase[row][col].add(grid[row][col]);
+
         for (int i = 0; i < 9; i++) {
             if (i != col) {
-                knowledgeBase[row][i] = getPossibleValues(row, i);
+                knowledgeBase[row][i].remove(grid[row][col]);
             }
 
             if (i != row) {
-                knowledgeBase[i][col] = getPossibleValues(i, col);
+                knowledgeBase[i][col].remove(grid[row][col]);
             }
         }
 
@@ -140,7 +143,7 @@ public class Grid {
         for (int i = blockRow; i < blockRow + 3; i++) {
             for (int j = blockCol; j < blockCol + 3; j++) {
                 if (!(i == row && j == col)) {
-                    knowledgeBase[i][j] = getPossibleValues(i, j);
+                    knowledgeBase[i][j].remove(grid[row][col]);
                 }
             }
         }
@@ -155,31 +158,19 @@ public class Grid {
         updateKnowledgeBaseFor(row, col);
     }
 
-    private void checkDuplicates(int type, int row, int col) {
+    private boolean checkDuplicates(int type, int row, int col) {
         Map<HashSet<Integer>, Integer> uniqueSetsCount = new HashMap<>();
 
         if (type == 0) {        // Row
 
             for (int i = 0; i < 9; i++) {
-                int count = uniqueSetsCount.getOrDefault(knowledgeBase[row][i], 0);
-
-                if (count == 0) {
-                    uniqueSetsCount.put(knowledgeBase[row][i], 1);
-                } else {
-                    uniqueSetsCount.put(knowledgeBase[row][i], count + 1);
-                }
+                uniqueSetsCount.put(knowledgeBase[row][i], uniqueSetsCount.getOrDefault(knowledgeBase[row][i], 0) + 1);
             }
 
         } else if (type == 1) { // Col
 
             for (int i = 0; i < 9; i++) {
-                int count = uniqueSetsCount.getOrDefault(knowledgeBase[i][col], 0);
-
-                if (count == 0) {
-                    uniqueSetsCount.put(knowledgeBase[i][col], 1);
-                } else {
-                    uniqueSetsCount.put(knowledgeBase[i][col], count + 1);
-                }
+                uniqueSetsCount.put(knowledgeBase[i][col], uniqueSetsCount.getOrDefault(knowledgeBase[i][col], 0) + 1);
             }
 
         } else {            // Block
@@ -189,23 +180,15 @@ public class Grid {
 
             for (int i = blockRow; i < blockRow + 3; i++) {
                 for (int j = blockCol; j < blockCol + 3; j++) {
-                    int count = uniqueSetsCount.getOrDefault(knowledgeBase[i][j], 0);
-
-                    if (count == 0) {
-                        uniqueSetsCount.put(knowledgeBase[i][j], 1);
-                    } else {
-                        uniqueSetsCount.put(knowledgeBase[i][j], count + 1);
-                    }
+                    uniqueSetsCount.put(knowledgeBase[i][j], uniqueSetsCount.getOrDefault(knowledgeBase[i][j], 0) + 1);
                 }
             }
         }
 
         ArrayList<HashSet<Integer>> duplicates = new ArrayList<>();
 
-        boolean response = false;
-
         for (Map.Entry<HashSet<Integer>, Integer> entry : uniqueSetsCount.entrySet()) {
-            if (entry.getValue() == entry.getKey().size()) {
+            if ((entry.getKey().size() > 1) && (entry.getValue() == entry.getKey().size())) {
                 duplicates.add(entry.getKey());
             }
         }
@@ -235,6 +218,62 @@ public class Grid {
                     }
                 }
             }
+        }
+
+        return !duplicates.isEmpty();
+    }
+
+    private boolean checkUniqueness(int row, int col) {
+        HashSet<Integer> currentValues = new HashSet<>(knowledgeBase[row][col]);
+        HashSet<Integer> otherValues = new HashSet<>();
+
+        for (int i = 0; i < 9; i++) {
+            if (i != col) {
+                otherValues.addAll(knowledgeBase[row][i]);
+            }
+
+            if (i != row) {
+                otherValues.addAll(knowledgeBase[i][col]);
+            }
+        }
+
+        int blockRow = (row / 3) * 3;
+        int blockCol = (col / 3) * 3;
+
+        for (int i = blockRow; i < blockRow + 3; i++) {
+            for (int j = blockCol; j < blockCol + 3; j++) {
+                if (!(i == row && j == col)) {
+                    otherValues.addAll(knowledgeBase[i][j]);
+                }
+            }
+        }
+
+        currentValues.removeAll(otherValues);
+
+        if (currentValues.size() > 1) {
+            for (int i = 0; i < 9; i++) {
+                if (i != col) {
+                    knowledgeBase[row][i].removeAll(currentValues);
+                }
+
+                if (i != row) {
+                    knowledgeBase[i][col].removeAll(currentValues);
+                }
+            }
+
+            for (int i = blockRow; i < blockRow + 3; i++) {
+                for (int j = blockCol; j < blockCol + 3; j++) {
+                    if (!(i == row && j == col)) {
+                        knowledgeBase[i][j].removeAll(currentValues);
+                    }
+                }
+            }
+
+            this.knowledgeBase[row][col] = currentValues;
+
+            return true;
+        } else {
+            return false;
         }
     }
 
@@ -317,7 +356,7 @@ public class Grid {
         boolean predicted;
         int turnsCount = 0;
 
-        do {
+        while(blankCellsCount > 0) {
             predicted = false;
             turnsCount++;
 
@@ -325,16 +364,20 @@ public class Grid {
             for (int i = 0; i < 9; i++) {
                 for (int j = 0; j < 9; j++) {
                     if (this.grid[i][j] == 0) {
+                        checkUniqueness(i, j);
                         for (int k = 0; k < 3; k++) {
-                            predicted = predicted || inferBy(k, i, j);
-
-                            if (predicted) {
-                                break outerLoop;
+//                            predicted = checkDuplicates(k, i, j) || predicted;
+                            if (inferBy(k, i, j)){
+                                break;
                             }
+
+//                            if (predicted) {
+//                                break outerLoop;
+//                            }
                         }
                     }
                 }
             }
-        } while (predicted);
+        }
     }
 }
